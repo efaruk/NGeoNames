@@ -5,6 +5,8 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Cache;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace NGeoNames
 {
@@ -159,6 +161,17 @@ namespace NGeoNames
         }
 
         /// <summary>
+        /// Same as DownloadFile but async
+        /// </summary>
+        /// <param name="uri"></param>
+        /// <param name="destinationpath"></param>
+        /// <returns></returns>
+        public async Task<string[]> DownloadFileAsync(string uri, string destinationpath)
+        {
+            return await DownloadFileAsync(new Uri(uri, UriKind.RelativeOrAbsolute), destinationpath);
+        }
+
+        /// <summary>
         /// Downloads the specified file to the destination path using the <see cref="DefaultTTL"/> to determine if an
         /// existing version is still valid.
         /// </summary>
@@ -177,6 +190,17 @@ namespace NGeoNames
         public string[] DownloadFile(Uri uri, string destinationpath)
         {
             return DownloadFileWhenOlderThan(uri, destinationpath, DefaultTTL);
+        }
+
+        /// <summary>
+        /// Same as DownloadFile but async
+        /// </summary>
+        /// <param name="uri"></param>
+        /// <param name="destinationpath"></param>
+        /// <returns></returns>
+        public async Task<string[]> DownloadFileAsync(Uri uri, string destinationpath)
+        {
+            return await DownloadFileWhenOlderThanAsync(uri, destinationpath, DefaultTTL);
         }
 
         /// <summary>
@@ -202,6 +226,18 @@ namespace NGeoNames
         public string[] DownloadFileWhenOlderThan(string uri, string destinationpath, TimeSpan ttl)
         {
             return DownloadFileWhenOlderThan(new Uri(uri, UriKind.RelativeOrAbsolute), destinationpath, ttl);
+        }
+
+        /// <summary>
+        /// Same as DownloadFileWhenOlderThan but async
+        /// </summary>
+        /// <param name="uri"></param>
+        /// <param name="destinationpath"></param>
+        /// <param name="ttl"></param>
+        /// <returns></returns>
+        public async Task<string[]> DownloadFileWhenOlderThanAsync(string uri, string destinationpath, TimeSpan ttl)
+        {
+            return await DownloadFileWhenOlderThanAsync(new Uri(uri, UriKind.RelativeOrAbsolute), destinationpath, ttl);
         }
 
         /// <summary>
@@ -238,6 +274,35 @@ namespace NGeoNames
                     w.Proxy = Proxy;
                     w.Headers.Add(HttpRequestHeader.UserAgent, USERAGENT);
                     w.DownloadFile(downloaduri, destinationpath);
+                }
+            }
+
+            if (Path.GetExtension(destinationpath).Equals(".zip", StringComparison.OrdinalIgnoreCase))
+                return UnzipFiles(destinationpath, ttl);
+            return new[] { destinationpath };
+        }
+
+        /// <summary>
+        /// Same as DownloadFileWhenOlderThan but async
+        /// </summary>
+        /// <param name="uri"></param>
+        /// <param name="destinationpath"></param>
+        /// <param name="ttl"></param>
+        /// <returns></returns>
+        public async Task<string[]> DownloadFileWhenOlderThanAsync(Uri uri, string destinationpath, TimeSpan ttl)
+        {
+            var downloaduri = DetermineDownloadPath(uri);
+            destinationpath = DetermineDestinationPath(downloaduri, destinationpath);
+
+            if (IsFileExpired(destinationpath, ttl))
+            {
+                using (var w = new WebClient())
+                {
+                    w.CachePolicy = CachePolicy;
+                    w.Credentials = Credentials;
+                    w.Proxy = Proxy;
+                    w.Headers.Add(HttpRequestHeader.UserAgent, USERAGENT);
+                    await w.DownloadFileTaskAsync(downloaduri, destinationpath);
                 }
             }
 
